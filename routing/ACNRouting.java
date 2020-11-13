@@ -21,14 +21,15 @@ public class ACNRouting extends ActiveRouter {
 	//variables
 
 	private Map<DTNHost, Map<DTNHost, Double>> trust;
-	protected Map<DTNHost, Double> meetings;
+	protected Map<DTNHost, Map<DTNHost, Double>> meetingsStartTime;
+	protected Map<DTNHost, Map<DTNHost, Double>> meetingsDuration;
 	private int nrofSamplesIET;
 	private double meanIET;
 	
 	//to store the last MAX_QUEUE_SIZE encounters only
 	Vector<DTNHost> LastEncounters = new Vector<DTNHost>();
 
-	protected Map<DTNHost, Integer> encounters;
+	protected Map<DTNHost, Map<DTNHost, Integer>> encounters;
 	private int nrofSamplesENC;
 	private double meanENC;
 	private int nrofTotENC;
@@ -36,7 +37,7 @@ public class ACNRouting extends ActiveRouter {
 	//constructrs
 	public ACNRouting(Settings settings) {
 		super(settings);
-		
+		initTrust();
 		initMeetings();
 	}
 	
@@ -53,8 +54,9 @@ public class ACNRouting extends ActiveRouter {
 	}
 
 	private void initMeetings() {
-		this.meetings = new HashMap<DTNHost, Double>();
-		this.encounters = new HashMap<DTNHost, Integer>();
+		this.meetingsStartTime = new HashMap<DTNHost, Map<DTNHost, Double>>();
+		this.meetingsDuration = new HashMap<DTNHost, Map<DTNHost, Double>>();
+		this.encounters = new HashMap<DTNHost, Map<DTNHost, Integer>>();
 		this.meanIET = 0;
 		this.nrofSamplesIET = 0;
 		this.meanENC = 0;
@@ -66,48 +68,96 @@ public class ACNRouting extends ActiveRouter {
 	@Override
 	public void changedConnection(Connection con) {
 		super.changedConnection(con);
-		
+		DTNHost toNode = con.getOtherNode(getHost());
+		DTNHost fromNode = getHost();
 		if (con.isUp()) {
-			DTNHost otherHost = con.getOtherNode(getHost());
-			MessageRouter mRouter = otherHost.getRouter();
-			this.changeMeetingStats(otherHost); //for current host
+			// MessageRouter mRouter = otherHost.getRouter();
+			this.updateEncounterStats(toNode); //for current host
+			this.updateMeetingStartTime(fromNode, toNode);
+			// this.updateMeetingStartTime(con.toNode, con.fromNode);
 			// otherHost.changeMeetingStats(getHost()); // for dest host
+		}
+		else {
+
+			this.updateMeetingDuration(fromNode, toNode);
 		}
 	}
 
-	protected void changeMeetingStats(DTNHost host) {		
+	private void updateMeetingStartTime(DTNHost from, DTNHost to) {
 		double currentTime = SimClock.getTime();
-		if (meetings.containsKey(host)) {
-			double timeDiff = currentTime - meetings.get(host);
-			nrofSamplesIET++;
-			meanIET = (((double)nrofSamplesIET -1) / (double)nrofSamplesIET) * meanIET
-			+ (1 / (double)nrofSamplesIET) * timeDiff;
-			meetings.put(host, currentTime);
-		} else {
-			meetings.put(host,currentTime);
-		}	
+		Map<DTNHost, Double> tempMeetingsStartTime = new HashMap<DTNHost, Double>();
+		if(meetingsStartTime.containsKey(from)) {
+			tempMeetingsStartTime = meetingsStartTime.get(from);
+		}
+		tempMeetingsStartTime.put(to, currentTime);
+		meetingsStartTime.put(from, tempMeetingsStartTime);
+	}
+
+	private void updateMeetingDuration(DTNHost from, DTNHost to){
+		double currentTime = SimClock.getTime();
+		Map<DTNHost, Double> tempMapHost;
+		if(!meetingsStartTime.containsKey(getHost())) return;
+		// if(meetingsstarttime.containsKey(getHost())) {
+		tempMapHost = meetingsStartTime.get(getHost());
+
+		// } 
+		double startTime = tempMapHost.get(to);
+		Map<DTNHost, Double> tempMapHost1 = new HashMap<DTNHost, Double>();
+		double tempDuration = 0.0;
+		if(meetingsDuration.containsKey(getHost())) {
+			tempMapHost1 = meetingsDuration.get(getHost());
+			if(tempMapHost1.containsKey(to))
+				tempDuration = tempMapHost1.get(to);
+		}
+		tempDuration += (currentTime - startTime);
+		tempMapHost1.put(to, tempDuration);
+		meetingsDuration.put(from, tempMapHost1);
+	}
+
+	private void updateEncounterStats(DTNHost host) {		
+		// double currentTime = SimClock.getTime();
+		// if (meetings.containsKey(host)) {
+		// 	double timeDiff = currentTime - meetings.get(host);
+		// 	nrofSamplesIET++;
+		// 	meanIET = (((double)nrofSamplesIET -1) / (double)nrofSamplesIET) * meanIET
+		// 	+ (1 / (double)nrofSamplesIET) * timeDiff;
+		// 	meetings.put(host, currentTime);
+		// } else {
+		// 	meetings.put(host,currentTime);
+		// }	
 
 		nrofTotENC++; // the number of encounter
 		LastEncounters.add(host);
 		if(LastEncounters.size() > MAX_QUEUE_SIZE) {
-			DTNHost temphost = LastEncounters.get(0);
-			int val = encounters.get(temphost);
+			DTNHost tempdtnhost = LastEncounters.get(0);
+			Map<DTNHost, Integer> tempMapHost;
+			tempMapHost = encounters.get(getHost());
+			int val = tempMapHost.get(tempdtnhost);
 			val--;
-			encounters.put(temphost,val);
+			tempMapHost.put(tempdtnhost,val);
+			encounters.put(getHost(), tempMapHost);
 		}
-		if (encounters.containsKey(host)) {
+		if (encounters.containsKey(getHost())) {
 			// int encounterNro = nrofTotENC - encounters.get(host);
 			// nrofSamplesENC++;
 			// meanENC = (((double)nrofSamplesENC -1) / (double)nrofSamplesENC) * meanENC
 			// + (1 / (double)nrofSamplesENC) * (double)encounterNro;
 			// encounters.put(host,nrofTotENC);
 			// return true;
-			int val = encounters.get(host);
+			Map<DTNHost, Integer> tempMapHost;
+			tempMapHost = encounters.get(getHost());
+			int val = 0;
+			if(tempMapHost.containsKey(host))
+				val = tempMapHost.get(host);
 			val++;
-			encounters.put(host,val);
+			tempMapHost.put(host, val);
+			encounters.put(getHost(), tempMapHost);
 
-		} else {
-			encounters.put(host,1);
+		}
+		else {
+			Map<DTNHost, Integer> tempMapHost = new HashMap<DTNHost, Integer>();;
+			tempMapHost.put(host, 1);
+			encounters.put(getHost(), tempMapHost);
 		}		
 	}
 
@@ -230,7 +280,7 @@ public class ACNRouting extends ActiveRouter {
 
 			DTNHost from1 = tuple1.getValue().getOtherNode(getHost());
 			DTNHost from2 = tuple2.getValue().getOtherNode(getHost());
-			double trust1=0.0,trust2=0.0;
+			double trust1=0.0,trust2=0.0, encounters1=0.0, encounters2=0.0, duration1=0.0, duration2=0.0;
 			try{
 				trust1 = trust.get(getHost()).get(from1);
 			}
@@ -243,8 +293,28 @@ public class ACNRouting extends ActiveRouter {
 			catch(Exception e) {
 				trust2 = INITIAL_TRUST_VALUE;
 			}
-			double p1 = encounterConstant*(encounters.get(from1) + meetings.get(from1)) + trustConstant*(trust1);
-			double p2 = encounterConstant*(encounters.get(from2) + meetings.get(from2)) + trustConstant*(trust2);
+			try {
+				Map<DTNHost, Integer> tempHost;
+				Map<DTNHost, Double> tempHost1;
+				tempHost = encounters.get(getHost());
+				tempHost1 = meetingsDuration.get(getHost());
+				encounters1 = tempHost.get(from1);
+				duration1 = tempHost1.get(from1);
+			}
+			catch(Exception e) {}
+			try {
+				Map<DTNHost, Integer> tempHost;
+				Map<DTNHost, Double> tempHost1;
+				tempHost = encounters.get(getHost());
+				tempHost1 = meetingsDuration.get(getHost());
+				encounters2 = tempHost.get(from2);
+				duration2 = tempHost1.get(from2);
+			}
+			catch(Exception e) {}
+			// double p1 = encounterConstant*(encounters.get(from1) + meetings.get(from1)) + trustConstant*(trust1);
+			// double p2 = encounterConstant*(encounters.get(from2) + meetings.get(from2)) + trustConstant*(trust2);
+			double p1 = encounterConstant*(encounters1*duration1) + trustConstant*(trust1);
+			double p2 = encounterConstant*(encounters2*duration2) + trustConstant*(trust2);
 
 			// bigger probability should come first
 			// if (p2-p1 == 0) {
