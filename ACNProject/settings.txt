@@ -7,7 +7,7 @@ Scenario.endTime = 10000000
 Scenario.endTime = 43200
 btInterface.type = SimpleBroadcastInterface
 btInterface.transmitSpeed = 250k
-btInterface.transmitRange = 10
+btInterface.transmitRange = 100
 
 
 Scenario.nrofHostGroups = 1
@@ -19,7 +19,7 @@ Group.waitTime = 0, 120
 
 
 
-Group.nrofHosts = 5
+Group.nrofHosts = 100
 Events.nrof = 1
 Events1.class = MessageEventGenerator
 Events1.interval = 25,35
