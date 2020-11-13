@@ -1,0 +1,16 @@
+# This scenario tests how different TTL values affect message delivery probabilities
+# This test can be run with command: one -b epidemic_ttl_test.txt 3
+
+# Scenario name will be based on the TTL setting, e.g., "Epidemic_TTL180" 
+# this helps identifying the correct report files
+Scenario.name = Epidemic_TTL%%Group.msgTtl%%
+
+# All nodes should use the Epidemic routing module
+Group.router = EpidemicRouter
+
+# Use TTL of 1, 6 and 12 hours (TTL value is given in minutes)
+Group.msgTtl = [60; 360; 720]
+
+# MessageStatsReport is enabled by default_settings.txt but 
+# let's override the report directory path setting
+Report.reportDir = epidemic_ttl_test/

@@ -1,0 +1,2 @@
+compile.bat
+one.bat -b 1 ACNProject/tempsettings.txt
