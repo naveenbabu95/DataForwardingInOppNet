@@ -13,7 +13,9 @@ btInterface.transmitRange = 100
 Scenario.nrofHostGroups = 1
 
 Group.movementModel = ShortestPathMapBasedMovement
-Group.router = ACNRouting
+Group.router = EpidemicRouter
+#Group.router = ProphetRouter
+#Group.router = ACNRouting
 Group.bufferSize = 5M
 Group.waitTime = 0, 120
 
@@ -29,7 +31,10 @@ Events1.prefix = Na
 
 Report.nrofReports = 3
 Report.warmup = 0
-Report.reportDir = ACNProject/reports
+
+Report.reportDir = ACNProject/epidemic/reports
+#Report.reportDir = ACNProject/prophet/reports
+#Report.reportDir = ACNProject/reports
 Report.report1 = ContactTimesReport
 Report.report2 = ConnectivityONEReport
 Report.report3 = MessageStatsReport

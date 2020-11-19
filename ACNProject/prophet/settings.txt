@@ -3,7 +3,6 @@ Scenario.name = TestScenario
 #default values
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
-Scenario.endTime = 10000000
 Scenario.endTime = 43200
 btInterface.type = SimpleBroadcastInterface
 btInterface.transmitSpeed = 250k
