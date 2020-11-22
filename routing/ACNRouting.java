@@ -184,31 +184,55 @@ public class ACNRouting extends ActiveRouter {
 		List<DTNHost> lsthops = new ArrayList<DTNHost>();
 		lsthops = m.getHops();
 
-		if (m.getTo() == recipient) { 
-			for (DTNHost host1 : lsthops) {
-				Map<DTNHost, Double> temptrustmap = new HashMap<DTNHost, Double>();
-				if(trust.containsKey(host1)) {
-					temptrustmap = trust.get(host1);
-				}
-				for(DTNHost host2: lsthops) {
-					double temptrustvalue = INITIAL_TRUST_VALUE;
-					if(temptrustmap.containsKey(host2)) {
-						temptrustvalue = temptrustmap.get(host2);
-					}
-					// temptrustvalue += FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
+		// if (m.getTo() == recipient) { 
+		// 	for (DTNHost host1 : lsthops) {
+		// 		Map<DTNHost, Double> temptrustmap = new HashMap<DTNHost, Double>();
+		// 		if(trust.containsKey(host1)) {
+		// 			temptrustmap = trust.get(host1);
+		// 		}
+		// 		for(DTNHost host2: lsthops) {
+		// 			double temptrustvalue = INITIAL_TRUST_VALUE;
+		// 			if(temptrustmap.containsKey(host2)) {
+		// 				temptrustvalue = temptrustmap.get(host2);
+		// 			}
+		// 			// temptrustvalue += FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
 					
-					//to give lesser hop count more advantage
-					temptrustvalue += (AVERAGE_HOP_COUNT/lsthops.size())*FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
-					temptrustmap.put(host2, temptrustvalue);
-				}
-				trust.put(host1, temptrustmap);
+		// 			//to give lesser hop count more advantage
+		// 			temptrustvalue += (AVERAGE_HOP_COUNT/lsthops.size())*FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
+		// 			temptrustmap.put(host2, temptrustvalue);
+		// 		}
+		// 		trust.put(host1, temptrustmap);
+		// 	}
+		// 	return;
+		// }
+
+		// Destn based trust
+		if (m.getTo() == recipient) { 
+			DTNHost host1 = getHost();
+			Map<DTNHost, Double> temptrustmap = new HashMap<DTNHost, Double>();
+			if(trust.containsKey(host1)) {
+				temptrustmap = trust.get(host1);
 			}
+			for(DTNHost host2: lsthops) {
+				double temptrustvalue = INITIAL_TRUST_VALUE;
+				if(temptrustmap.containsKey(host2)) {
+					temptrustvalue = temptrustmap.get(host2);
+				}
+				// temptrustvalue += FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
+				
+				//to give lesser hop count more advantage
+				temptrustvalue += (AVERAGE_HOP_COUNT/lsthops.size())*FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
+				temptrustmap.put(host2, temptrustvalue);
+			}
+			trust.put(host1, temptrustmap);
 			return;
 		}
 
 		if(lsthops.size() < 2){
 			return;
 		}
+
+		//2-Hop
 
 		DTNHost tempHost = (lsthops.get(lsthops.size() - 2));
 		DTNHost tempHost1 = (lsthops.get(lsthops.size() - 1));
