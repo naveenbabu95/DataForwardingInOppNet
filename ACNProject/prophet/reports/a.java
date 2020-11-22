@@ -13,9 +13,10 @@ public class ACNRouting extends ActiveRouter {
 
 	//constants
 	private int MAX_QUEUE_SIZE = 50;
-	protected double AVERAGE_HOP_COUNT = 10.0;
 	protected double INITIAL_TRUST_VALUE = 1.0;
-	protected double INCREMENT_TRUST_VALUE = 1.0;
+	protected double AVERAGE_HOP_COUNT = 10.0;
+	protected double ONE_HOP_TRUST_VALUE_INCREMENT = 1.0;
+	protected double TWO_HOP_TRUST_VALUE_INCREMENT = 1.0;
 	protected double FINAL_DESTINATION_TRUST_VALUE_INCREMENT = 2.0;
 	protected double encounterConstant = 1.0;
 	protected double trustConstant = 1.0;
@@ -25,16 +26,13 @@ public class ACNRouting extends ActiveRouter {
 	private Map<DTNHost, Map<DTNHost, Double>> trust;
 	protected Map<DTNHost, Map<DTNHost, Double>> meetingsStartTime;
 	protected Map<DTNHost, Map<DTNHost, Double>> meetingsDuration;
-	private int nrofSamplesIET;
-	private double meanIET;
 	
 	//to store the last MAX_QUEUE_SIZE encounters only
 	Vector<DTNHost> LastEncounters = new Vector<DTNHost>();
 
 	protected Map<DTNHost, Map<DTNHost, Integer>> encounters;
-	private int nrofSamplesENC;
-	private double meanENC;
-	private int nrofTotENC;
+	private Set<String> ackedMessageIds;
+	private Map<DTNHost, Set<String>> sentMessages;
 
 	//constructrs
 	public ACNRouting(Settings settings) {
@@ -45,6 +43,8 @@ public class ACNRouting extends ActiveRouter {
 	
 	protected ACNRouting(ACNRouting r) {
 		super(r);
+		this.ackedMessageIds = new HashSet<String>();
+		this.sentMessages = new HashMap<DTNHost, Set<String>>();
 		initTrust();
 		initMeetings();
 	}
@@ -59,11 +59,14 @@ public class ACNRouting extends ActiveRouter {
 		this.meetingsStartTime = new HashMap<DTNHost, Map<DTNHost, Double>>();
 		this.meetingsDuration = new HashMap<DTNHost, Map<DTNHost, Double>>();
 		this.encounters = new HashMap<DTNHost, Map<DTNHost, Integer>>();
-		this.meanIET = 0;
-		this.nrofSamplesIET = 0;
-		this.meanENC = 0;
-		this.nrofSamplesENC = 0;
-		this.nrofTotENC = 0;
+	}
+
+	private void deleteAckedMessages() {
+		for (String id : this.ackedMessageIds) {
+			if (this.hasMessage(id) && !isSending(id)) {
+				this.deleteMessage(id, false);
+			}
+		}
 	}
 
 	// if changed connection
@@ -76,6 +79,15 @@ public class ACNRouting extends ActiveRouter {
 			// MessageRouter mRouter = otherHost.getRouter();
 			this.updateEncounterStats(toNode); //for current host
 			this.updateMeetingStartTime(fromNode, toNode);
+			if(con.isInitiator(getHost())) {
+				DTNHost otherHost = con.getOtherNode(getHost());
+				MessageRouter mRouter = otherHost.getRouter();
+				ACNRouting otherRouter = (ACNRouting)mRouter;
+				this.ackedMessageIds.addAll(otherRouter.ackedMessageIds);
+				otherRouter.ackedMessageIds.addAll(this.ackedMessageIds);
+				deleteAckedMessages();
+				otherRouter.deleteAckedMessages();
+			}
 			// this.updateMeetingStartTime(con.toNode, con.fromNode);
 			// otherHost.changeMeetingStats(getHost()); // for dest host
 		}
@@ -128,7 +140,6 @@ public class ACNRouting extends ActiveRouter {
 		// 	meetings.put(host,currentTime);
 		// }	
 
-		nrofTotENC++; // the number of encounter
 		LastEncounters.add(host);
 		if(LastEncounters.size() > MAX_QUEUE_SIZE) {
 			DTNHost tempdtnhost = LastEncounters.get(0);
@@ -163,15 +174,29 @@ public class ACNRouting extends ActiveRouter {
 		}		
 	}
 
-	// @Override
-	// public Message messageTransferred(String id, DTNHost from) {
-	// 	this.costsForMessages = null; // new message -> invalidate costs
-	// 	Message m = super.messageTransferred(id, from);
-	// 	if (isDeliveredMessage(m)) {
-	// 		this.ackedMessageIds.add(id);
-	// 	}
-	// 	return m;
-	// }
+	@Override
+	public Message messageTransferred(String id, DTNHost from) {
+		Message m = super.messageTransferred(id, from);
+		// 1 hop logic
+		if (!isDeliveredMessage(m)) {
+			// Map<DTNHost, Double> temptrustmap = new HashMap<DTNHost, Double>();
+			// if(trust.containsKey(from)) {
+			// 	temptrustmap = trust.get(from);
+			// }
+			// double temptrustvalue = INITIAL_TRUST_VALUE;
+			// if(temptrustmap.containsKey(getHost())) {
+			// 	temptrustvalue = temptrustmap.get(getHost());
+			// }
+			// temptrustvalue += ONE_HOP_TRUST_VALUE_INCREMENT;
+			// temptrustmap.put(getHost(), temptrustvalue);
+			// trust.put(from, temptrustmap);
+
+		}
+		else {
+			this.ackedMessageIds.add(id);
+		}
+		return m;
+	}
 	
 	@Override
 	protected void transferDone(Connection con) {
@@ -180,45 +205,59 @@ public class ACNRouting extends ActiveRouter {
 		// 	this.ackedMessageIds.add(m.getId()); // yes, add to ACKed messages
 		// 	this.deleteMessage(m.getId(), false); // delete from buffer
 		// }
-		DTNHost recipient = con.getOtherNode(getHost());
+
+
 		List<DTNHost> lsthops = new ArrayList<DTNHost>();
 		lsthops = m.getHops();
-
-		if (m.getTo() == recipient) { 
-			for (DTNHost host1 : lsthops) {
-				Map<DTNHost, Double> temptrustmap = new HashMap<DTNHost, Double>();
-				if(trust.containsKey(host1)) {
-					temptrustmap = trust.get(host1);
-				}
-				for(DTNHost host2: lsthops) {
-					double temptrustvalue = INITIAL_TRUST_VALUE;
-					if(temptrustmap.containsKey(host2)) {
-						temptrustvalue = temptrustmap.get(host2);
-					}
-					// temptrustvalue += FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
-					
-					//to give lesser hop count more advantage
-					temptrustvalue += (AVERAGE_HOP_COUNT/lsthops.size())*FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
-					temptrustmap.put(host2, temptrustvalue);
-				}
-				trust.put(host1, temptrustmap);
-			}
-			return;
+		
+		DTNHost recipient = con.getOtherNode(getHost());
+		Set<String> sentMsgIds = this.sentMessages.get(recipient);
+		if (sentMsgIds == null) {
+			sentMsgIds = new HashSet<String>();
+			this.sentMessages.put(recipient, sentMsgIds);
 		}
+		String id = m.getId();
+		sentMsgIds.add(id);
 
+		/* was the message delivered to the final recipient? */
+		// if (m.getTo() == recipient) { 
+		// 	for (DTNHost host1 : lsthops) {
+		// 		Map<DTNHost, Double> temptrustmap = new HashMap<DTNHost, Double>();
+		// 		if(trust.containsKey(host1)) {
+		// 			temptrustmap = trust.get(host1);
+		// 		}
+		// 		for(DTNHost host2: lsthops) {
+		// 			double temptrustvalue = INITIAL_TRUST_VALUE;
+		// 			if(temptrustmap.containsKey(host2)) {
+		// 				temptrustvalue = temptrustmap.get(host2);
+		// 			}
+		// 			// temptrustvalue += FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
+					
+		// 			//to give lesser hop count more advantage
+		// 			temptrustvalue += (AVERAGE_HOP_COUNT/lsthops.size())*FINAL_DESTINATION_TRUST_VALUE_INCREMENT;
+		// 			temptrustmap.put(host2, temptrustvalue);
+		// 		}
+		// 		trust.put(host1, temptrustmap);
+		// 	}
+		// 	return;
+		// }
+
+
+		//hasnt reached destination yet
+		//2 hop logic
 		if(lsthops.size() < 2){
 			return;
 		}
 
-		DTNHost tempHost = (lsthops.get(lsthops.size() - 2));
-		DTNHost tempHost1 = (lsthops.get(lsthops.size() - 1));
+		DTNHost tempHost = lsthops.get(lsthops.size() - 2);
+		DTNHost tempHost1 = lsthops.get(lsthops.size() - 1);
 		try {
 			// tempHost.deleteMessage(m.getId(), false); // delete from buffer
 		}
 		catch(Exception e) {}
 		double temptrustvalue = INITIAL_TRUST_VALUE;
-		// if (meetings.containsKey(tmphost1)) {
-		// 	temptrust = tmphost.trust.get(tmphost1);
+		// if (meetings.contai{
+		// 	temptrust = tmphost.trust.get(tmphost1);nsKey(tmphost1)) 
 		// 	temptrust++;
 		// }
 		// tmphost.trust.put(tmphost1, temptrust);
@@ -227,7 +266,7 @@ public class ACNRouting extends ActiveRouter {
 			temptrustmap = trust.get(tempHost);
 			if(temptrustmap.containsKey(tempHost1)) {
 				temptrustvalue = temptrustmap.get(tempHost1);
-				temptrustvalue += INCREMENT_TRUST_VALUE;
+				temptrustvalue += TWO_HOP_TRUST_VALUE_INCREMENT;
 			}
 			//else it is inital value
 			
@@ -266,7 +305,7 @@ public class ACNRouting extends ActiveRouter {
 		for (Connection con : getConnections()) {
 			DTNHost other = con.getOtherNode(getHost());
 			ACNRouting othRouter = (ACNRouting)other.getRouter();
-			
+			Set<String> sentMsgIds = this.sentMessages.get(other);
 			if (othRouter.isTransferring()) {
 				continue; // skip hosts that are transferring
 			}
@@ -275,6 +314,9 @@ public class ACNRouting extends ActiveRouter {
 				if (othRouter.hasMessage(m.getId()) ||
 						m.getHops().contains(other)) {
 					continue; 
+				}
+				if (sentMsgIds != null && sentMsgIds.contains(m.getId())) {
+					continue;
 				}
 				messages.add(new Tuple<Message, Connection>(m,con));
 			}			
@@ -305,7 +347,8 @@ public class ACNRouting extends ActiveRouter {
 
 			DTNHost from1 = tuple1.getValue().getOtherNode(getHost());
 			DTNHost from2 = tuple2.getValue().getOtherNode(getHost());
-			double trust1=0.0,trust2=0.0, encounters1=0.0, encounters2=0.0, duration1=0.0, duration2=0.0;
+			double trust1,trust2, encounters1=0.0, encounters2=0.0, duration1=0.0, duration2=0.0;
+			trust1 = trust2 = 0.0;
 			try{
 				trust1 = trust.get(getHost()).get(from1);
 			}
