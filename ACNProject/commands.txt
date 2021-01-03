@@ -1,2 +1,0 @@
-compile.bat
-one.bat -b 1 ACNProject/settings.txt

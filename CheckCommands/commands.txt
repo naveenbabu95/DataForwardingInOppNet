@@ -1,0 +1,2 @@
+compile.bat
+one.bat -b 4 RoutingResults/settings.txt
