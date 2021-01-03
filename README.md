@@ -41,7 +41,7 @@ For our implementation of the given scenario we have given equal weightage to bo
 
 ![](images/SimulationResults.png)
 *Simulation of proposed method*
-
+<br><br>
 
 
 ![](images/SimulationOfPRoPhet.png)
