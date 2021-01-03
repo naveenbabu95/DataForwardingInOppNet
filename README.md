@@ -37,11 +37,14 @@ Simulation
 We have implemented our routing protocol in the Opportunistic Network Environment simulator (ONE) [9]. We have taken a fixed setting of 100 nodes in the network with all nodes following the “Shortest Path Movement Model”. We compared our routing algorithm to the existing PRoPHET Routing algorithm and were able to obtain better results in almost all parameters including the delivery probability and the lesser overhead. In Figure 2 and 3 show the Message stats for our routing algorithm and the PRoPHET algorithm respectively, we can see the comparison between the results we observed.
 For our implementation of the given scenario we have given equal weightage to both the trust and encounter times factors in the formula while deciding the next hop node. These constants could vary based on the network state and the application requirements. By adjusting these factors, we can achieve a good trade off between the delivery probability and the average latency observed for a packet that travels in the network.
 
-![](images/SimulationResults.png)
 Simulation of proposed method
+![](images/SimulationResults.png)
 
-![](images/SimulationOfPRoPhet.png)
+
+
 Simulation of PRoPHET
+![](images/SimulationOfPRoPhet.png)
+
 
 
 Steps to follow to run simulation:
